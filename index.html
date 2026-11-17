@@ -243,6 +243,7 @@ h1 span{color:var(--chart)}
 .logout:hover{color:var(--ink);border-color:var(--muted)}
 .legend .who{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px;padding-top:8px;border-top:1px solid var(--line);font-size:12px}
 .legend .who button{border:1px solid var(--line);background:transparent;border-radius:6px;padding:3px 8px;font-size:12px}
+.notmine{display:inline-block;margin-left:6px;padding:0 6px;border-radius:4px;font-size:11.5px;font-weight:600;background:color-mix(in srgb,var(--out) 14%,transparent);color:var(--out)}
 .pp .mine{margin-top:6px;font-size:13px;font-weight:600;padding:4px 8px;border-radius:6px;display:inline-block}
 .pp .mine.ok{background:#E3F3EA;color:#14653A}.pp .mine.no{background:#FBE4E2;color:#9A2A22}
 
@@ -365,9 +366,9 @@ h1 span{color:var(--chart)}
 const CONFIG = {
   // ── 버전: 업데이트할 때 여기만 바꾸면 로그인 화면·범례에 자동 표시 ──
   //   큰 개편 2.0.0 / 기능 추가 1.1.0 / 오류·계정·문구 수정 1.0.1
-  VERSION: "1.0.0",
+  VERSION: "1.0.1",
   RELEASED: "2026.11.17",
-  RELEASE_NOTE: "정식 배포",
+  RELEASE_NOTE: "조종자 판정 개선",
   COPYRIGHT: "© 2026 대전MBC AI전환TF",
   SHEET_CSV_URL: "https://docs.google.com/spreadsheets/d/e/2PACX-1vR56HaNkvg9SaF_XTEGbA8kYipSShEc_tH72NgbGOfCBjWF-fwP6VEhcgMYjs-7IVQc33tx2Lnq4r4Q/pub?gid=729705225&single=true&output=csv",
   VWORLD_KEY: "9937A4DC-8650-424D-87E1-8D739EC0E47D",
@@ -389,6 +390,8 @@ const CONFIG = {
     "aa12b7fd81e5504e005611c46d2948b37c957f61a8b03e684a5c7bd20a93dc9a",
     "80851b68b9afaa4bb7df0d0895c349b896701f10b977ac623db276f968cc0088"
   ],
+  // 열람 전용 계정: 조종자 판정 없이 전체 현황만 봄. 나머지 개인 계정은 모두 조종자 기준으로 판정
+  VIEWER_IDS: ["AITF"],
   LOGIN_DAYS: 30
 };
 
@@ -469,11 +472,11 @@ function startAuth(){
 /* 조종자 매칭: 시트의 조종자 칸(여러 명이면 쉼표로 구분)과 로그인 이름 비교 */
 const pilotsOf=z=>String(z.row.조종자||"").split(/[\s,/·、;]+/).map(normName).filter(Boolean);   // 띄어쓰기·쉼표 모두 구분자로
 const pilotOK=z=>pilotsOf(z).includes(currentUser);
-const amPilot=()=>!!currentUser&&zones.some(z=>pilotsOf(z).includes(currentUser));
+const amPilot=()=>!!currentUser&&!(CONFIG.VIEWER_IDS||[]).map(v=>String(v).toUpperCase()).includes(currentUser);   // 개인 계정 = 조종자 판정 대상
 function myPilotLine(z){
   if(!amPilot()) return "";
-  return pilotOK(z)?`<div class="mine ok">${esc(currentUser)}님: 이 허가의 조종자</div>`
-                   :`<div class="mine no">${esc(currentUser)}님은 이 허가의 조종자가 아닙니다</div>`;
+  return pilotOK(z)?`<div class="mine ok">${esc(currentUser)}님: 이 허가의 조종자 (비행 가능)</div>`
+                   :`<div class="mine no">${esc(currentUser)}님은 이 허가의 조종자가 아니라 비행 불가</div>`;
 }
 
 /* ---------- 기체 사진 ---------- */
@@ -772,7 +775,7 @@ function render(){
     return `<div class="item ${z.c.date}" tabindex="0" data-i="${zones.indexOf(z)}" style="--c:var(${KINDS[z.c.kind].css})">
       <div class="bar"></div><div>
         <div class="row1"><span class="name">${esc(z.row.장소명||"이름 없음")}</span><span class="tag">${KINDS[z.c.kind].short}</span></div>
-        <div class="meta">${DLABEL[z.c.date]}, ${fmtDate(z.c.start)}~${fmtDate(z.c.end)}, ${z.poly?"면적 "+areaOf(z):"반경 "+fmtR(z.r)}${alt.length?`, 고도 ${Math.min(...alt)}m`:""}</div>
+        <div class="meta">${DLABEL[z.c.date]}, ${fmtDate(z.c.start)}~${fmtDate(z.c.end)}, ${z.poly?"면적 "+areaOf(z):"반경 "+fmtR(z.r)}${alt.length?`, 고도 ${Math.min(...alt)}m`:""}${amPilot()&&!pilotOK(z)?`<span class="notmine">조종자 아님</span>`:""}</div>
       </div></div>`;}).join(""):`<div class="empty">표시할 허가구역이 없습니다. 시트에 행을 추가하거나 범례에서 ‘만료된 구역도 보기’를 켜 보세요.</div>`;
   list.querySelectorAll(".item").forEach(el=>{
     const go=()=>focusZone(zones[+el.dataset.i]);
